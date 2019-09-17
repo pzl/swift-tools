@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# this file is not meant to be called directly.
+# it may fail if not called with "buildah unshare" first. It is called from the 'swift' helper
+
+set -e
+
+cleanup() {
+  set +e
+  status=$?
+  [ ! -z "$build_mt" ] &&  echo "[i] unmounting build mount $build_mt" && buildah unmount $build_ct
+  [ ! -z "$runtime_mt" ] &&  echo "[i] unmounting runtime mount $runtime_mt" && buildah unmount $runtime_ct
+  [ ! -z "$build_ct" ] && echo "[i] cleaning up build container $build_ct" && buildah rm $build_ct
+  [ ! -z "$runtime_ct" ] && echo "[i] cleaning up run container $runtime_ct" && buildah rm $runtime_ct
+  set -e
+  exit "$status"
+}
+trap cleanup INT TERM EXIT
+
+name="$(basename "$(pwd)")"
+if [ ! -z "$1" ]; then
+  name="$1"
+fi
+
+build_ct=$(buildah from swift)
+echo "[i] created build container $build_ct"
+build_mt=$(buildah mount $build_ct)
+echo "[i] mounted build container fs at $build_mt"
+cp -r . $build_mt/
+
+
+
+#### `swift build` approach. Not using for now. when run, was getting: error: root manifest not found
+#interesting flags:
+# -build-tests   -- build test targets too
+# --no-static-swift-stdlib (default) / --static-swift-stdlib
+# --product    --target
+# --show-bin-path    -- print the binary output path
+#if [ "$2" == "release" ]; then
+#  buildah run $build_ct -- swift build -c release
+#else
+#  buildah run $build_ct -- swift build -c debug
+#fi
+
+#### `swiftc` approach. As explained in https://monospacedmonologues.com/2019/01/running-swift-without-xcode/
+# -static-stdlib
+# -target
+# -target-cpu
+if [ "$2" == "release" ]; then
+  buildah run $build_ct -- swiftc -o app -O *.swift
+else
+  buildah run $build_ct -- swiftc -g -v -o app *.swift
+fi
+
+
+
+echo "[i] build successful"
+
+runtime_ct=$(buildah from swift:slim)
+echo "[i] created runtime container $runtime_ct"
+runtime_mt=$(buildah mount $runtime_ct)
+echo "[i] mounted runtime container fs at $runtime_mt"
+
+#buildah run $runtime_ct -- apk add nginx
+#buildah run $runtime_ct -- rm -rf /etc/nginx/conf.d/default.conf
+cp $build_mt/app $runtime_mt/app
+
+
+buildah config --created-by "Dan Panzarella" $runtime_ct
+buildah config --author "dan at panzarel.la" --label name=swift-${name} $runtime_ct
+buildah config --cmd "/app" $runtime_ct
+#buildah config --port 80 $runtime_ct
+#buildah config --port 443 $runtime_ct
+#buildah config --volume /var/socks $runtime_ct
+buildah commit $runtime_ct swift-${name}
+
+echo -e "\033[32m[i] build successful.\033[0m run with \"\033[34mpodman run --rm -it swift-${name}\033[0m\". Remove with \"\033[31mpodman rmi swift-${name}\033[0m\"."

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# shortcut/alias for launching a swift repl.
+# it takes a few extra parameters and capabilities added to launch the repl.
+# see https://github.com/apple/swift-docker/issues/9#issuecomment-328224511
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" )" && pwd)"
+exec podman run --rm -it --cap-add sys_ptrace --security-opt "seccomp=${SCRIPT_DIR}/swift-seccomp.json" swift swift
