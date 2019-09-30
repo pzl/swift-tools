@@ -1,0 +1,5 @@
+#!/bin/bash
+
+
+
+exec podman run --rm -it --mount type=bind,src=$PWD,dst=$PWD -w $PWD swift swift $@

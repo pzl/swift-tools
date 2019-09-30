@@ -22,14 +22,25 @@ You are welcome to rename the `swift` script to something else, if you don't wan
 Usage
 -----
 
-### Building
+### Running during Development
+
+A `swift-run` script was created for running a project (i.e. running `swift a.swift b.swift dir/c.swift`...) without outputting a compiled binary. This is often used during development or scripting. Use with `swift-run <files...>`.
+
+
+### Compile & output a slimmed down container
+
+If you are compiling a final unit, you can create a production container with your compiled app, and only the swift runtime (removing the swift development tools). This allows for a much smaller container, and none of your source files.
+
+**building**
 
 _From your project root_, run `swift`. This will copy your current dir to the build container, compile, and copy the resulting binary to the runtime container. It will print out the commands you can run to then run your binary
 
 
-### Running
+**running**
 
 Run the command printed out from the build step. It will likely be `podman run --rm -it swift-<projectname>`. Where `projectname` is the name of the directory you were in. You can change this name during build, by running `swift NAME` to make a container called `swift-NAME`. 
+
+
 
 ### REPL
 
